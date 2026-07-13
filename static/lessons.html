@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow — Lessons</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">EduFlow</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="courses.html" class="nav-item active">
+          <span class="nav-icon">📚</span> Courses
+        </a>
+        <a href="assignments.html" class="nav-item">
+          <span class="nav-icon">📝</span> Assignments
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-role" id="user-role">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">⬅️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">
+              <a href="courses.html" style="color:var(--blue);text-decoration:none">Courses</a> →
+              <span id="course-name">Course</span>
+            </div>
+            <h1>Lessons & Assignments</h1>
+          </div>
+          <div style="display:flex;gap:12px">
+            <button class="btn btn-secondary" id="add-lesson-btn" style="display:none" onclick="openLessonModal()">+ Add Lesson</button>
+            <button class="btn btn-primary" id="add-assignment-btn" style="display:none;width:auto" onclick="openAssignmentModal()">+ Add Assignment</button>
+            <button class="btn btn-secondary" id="enroll-btn" style="display:none" onclick="enroll()">Enroll in Course</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <div class="section-header">
+            <h3>📖 Lessons</h3>
+          </div>
+          <div id="lessons-list">
+            <div class="empty-state">
+              <div class="empty-icon">⏳</div>
+              <h4>Loading...</h4>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-header">
+            <h3>📝 Assignments</h3>
+          </div>
+          <div id="assignments-list">
+            <div class="empty-state">
+              <div class="empty-icon">⏳</div>
+              <h4>Loading...</h4>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Lesson Modal -->
+  <div class="modal-overlay" id="lesson-modal">
+    <div class="modal">
+      <h3>Add New Lesson</h3>
+      <div class="form-group">
+        <label>Lesson Title</label>
+        <input type="text" id="lesson-title" placeholder="e.g. Introduction to Algebra">
+      </div>
+      <div class="form-group">
+        <label>Content</label>
+        <textarea id="lesson-content" placeholder="Lesson content goes here..." style="min-height:150px"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Position (order)</label>
+        <input type="number" id="lesson-position" placeholder="1" min="1" value="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeLessonModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createLesson()">Add Lesson</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Assignment Modal -->
+  <div class="modal-overlay" id="assignment-modal">
+    <div class="modal">
+      <h3>Add New Assignment</h3>
+      <div class="form-group">
+        <label>Assignment Title</label>
+        <input type="text" id="assign-title" placeholder="e.g. Week 1 Homework">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="assign-desc" placeholder="What should students do?"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" id="assign-due">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAssignmentModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createAssignment()">Add Assignment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit Assignment Modal -->
+  <div class="modal-overlay" id="submit-modal">
+    <div class="modal">
+      <h3>Submit Assignment</h3>
+      <div class="form-group">
+        <label>Your Answer</label>
+        <textarea id="submit-content" placeholder="Write your submission here..." style="min-height:150px"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeSubmitModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitAssignment()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+    const role = getRole();
+    const courseId = localStorage.getItem('currentCourseId');
+    const courseTitle = localStorage.getItem('currentCourseTitle');
+    let selectedAssignmentId = null;
+
+    if (!courseId) window.location.href = 'courses.html';
+
+    document.getElementById('course-name').textContent = courseTitle;
+
+    async function loadPage() {
+      const meRes = await apiFetch('/me');
+      const user = await meRes.json();
+      document.getElementById('user-avatar').textContent = user.role === 'teacher' ? 'T' : 'S';
+      document.getElementById('user-role').textContent = user.role;
+
+      if (user.role == 'admin') {
+        document.getElementById('admin-nav-label').style.display = 'block';
+        document.getElementById('admin-nav-link').style.display = 'flex';
+      }
+
+      if (role === 'teacher') {
+        document.getElementById('add-lesson-btn').style.display = 'inline-flex';
+        document.getElementById('add-assignment-btn').style.display = 'inline-flex';
+      } else {
+        document.getElementById('enroll-btn').style.display = 'inline-flex';
+      }
+
+      loadLessons();
+      loadAssignments();
+    }
+
+    async function loadLessons() {
+      const res = await apiFetch(`/courses/${courseId}/lessons`);
+      const list = document.getElementById('lessons-list');
+
+      if (!res.ok) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <h4>Not enrolled</h4>
+            <p>Enroll in this course to see lessons</p>
+          </div>`;
+        return;
+      }
+
+      const lessons = await res.json();
+
+      if (lessons.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📖</div>
+            <h4>No lessons yet</h4>
+            <p>${role === 'teacher' ? 'Add your first lesson' : 'Check back soon'}</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = lessons.map(l => `
+        <div class="list-item">
+          <div class="list-number">${l.position}</div>
+          <div class="list-info">
+            <h4>${l.title}</h4>
+            <p>${l.content ? l.content.substring(0, 80) + '...' : 'No content'}</p>
+          </div>
+        </div>`).join('');
+    }
+
+    async function loadAssignments() {
+      const res = await apiFetch(`/courses/${courseId}/assignments`);
+      const list = document.getElementById('assignments-list');
+
+      if (!res.ok) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <h4>Not enrolled</h4>
+            <p>Enroll to see assignments</p>
+          </div>`;
+        return;
+      }
+
+      const assignments = await res.json();
+
+      if (assignments.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h4>No assignments yet</h4>
+            <p>${role === 'teacher' ? 'Add your first assignment' : 'Check back soon'}</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = assignments.map(a => `
+        <div class="list-item" onclick="${role === 'student' ? `openSubmitModal(${a.id})` : ''}">
+          <div class="list-number">📝</div>
+          <div class="list-info">
+            <h4>${a.title}</h4>
+            <p>Due: ${new Date(a.due_date).toLocaleDateString()}</p>
+          </div>
+          ${role === 'student' ? `<span style="color:var(--blue);font-size:13px;font-weight:600">Submit →</span>` : ''}
+        </div>`).join('');
+    }
+
+    async function createLesson() {
+      const title = document.getElementById('lesson-title').value.trim();
+      const content = document.getElementById('lesson-content').value.trim();
+      const position = parseInt(document.getElementById('lesson-position').value) || 1;
+
+      if (!title) { showToast('Title is required', 'error'); return; }
+
+      const res = await apiFetch(`/courses/${courseId}/lessons`, {
+        method: 'POST',
+        body: JSON.stringify({ title, content, position })
+      });
+
+      if (res.ok) {
+        showToast('Lesson added!');
+        closeLessonModal();
+        loadLessons();
+      } else {
+        showToast('Failed to add lesson', 'error');
+      }
+    }
+
+    async function createAssignment() {
+      const title = document.getElementById('assign-title').value.trim();
+      const description = document.getElementById('assign-desc').value.trim();
+      const due_date = document.getElementById('assign-due').value;
+
+      if (!title || !due_date) { showToast('Title and due date required', 'error'); return; }
+
+      const res = await apiFetch(`/courses/${courseId}/assignments`, {
+        method: 'POST',
+        body: JSON.stringify({ title, description, due_date })
+      });
+
+      if (res.ok) {
+        showToast('Assignment added!');
+        closeAssignmentModal();
+        loadAssignments();
+      } else {
+        showToast('Failed to add assignment', 'error');
+      }
+    }
+
+    function openSubmitModal(id) {
+      selectedAssignmentId = id;
+      document.getElementById('submit-modal').classList.add('show');
+    }
+
+    async function submitAssignment() {
+      const content = document.getElementById('submit-content').value.trim();
+      if (!content) { showToast('Please write your submission', 'error'); return; }
+
+      const res = await apiFetch(`/assignments/${selectedAssignmentId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ content })
+      });
+
+      if (res.ok) {
+        showToast('Assignment submitted! 🎉');
+        closeSubmitModal();
+      } else {
+        showToast('Already submitted or error occurred', 'error');
+      }
+    }
+
+    async function enroll() {
+      const res = await apiFetch(`/courses/${courseId}/enroll`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Enrolled successfully! 🎉');
+        loadLessons();
+        loadAssignments();
+      } else {
+        showToast('Already enrolled', 'error');
+      }
+    }
+
+    function openLessonModal() { document.getElementById('lesson-modal').classList.add('show'); }
+    function closeLessonModal() { document.getElementById('lesson-modal').classList.remove('show'); }
+    function openAssignmentModal() { document.getElementById('assignment-modal').classList.add('show'); }
+    function closeAssignmentModal() { document.getElementById('assignment-modal').classList.remove('show'); }
+    function closeSubmitModal() { document.getElementById('submit-modal').classList.remove('show'); }
+
+    loadPage();
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow — Courses</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">EduFlow</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="courses.html" class="nav-item active">
+          <span class="nav-icon">📚</span> Courses
+        </a>
+        <a href="assignments.html" class="nav-item">
+          <span class="nav-icon">📝</span> Assignments
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-role" id="user-role">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">⬅️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h1>Courses</h1>
+            <p id="courses-subtitle">Browse and manage your courses</p>
+          </div>
+          <button class="btn btn-primary" id="create-btn" style="display:none;width:auto" onclick="openModal()">
+            + New Course
+          </button>
+        </div>
+      </div>
+
+      <div class="cards-grid" id="courses-grid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon">⏳</div>
+          <h4>Loading...</h4>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Create Course Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3>Create New Course</h3>
+      <div class="form-group">
+        <label>Course Title</label>
+        <input type="text" id="course-title" placeholder="e.g. Introduction to Mathematics">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="course-desc" placeholder="What will students learn?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="createCourse()">Create Course</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+    const role = getRole();
+    let selectedCourseId = null;
+
+    async function loadPage() {
+      const meRes = await apiFetch('/me');
+      const user = await meRes.json();
+      document.getElementById('user-avatar').textContent = user.role === 'teacher' ? 'T' : 'S';
+      document.getElementById('user-role').textContent = user.role;
+
+      if (user.role == 'admin') {
+        document.getElementById('admin-nav-label').style.display = 'block';
+        document.getElementById('admin-nav-link').style.display = 'flex';
+      }
+
+      if (role === 'teacher') {
+        document.getElementById('create-btn').style.display = 'inline-flex';
+        document.getElementById('courses-subtitle').textContent = 'Manage your courses and content';
+      }
+
+      loadCourses();
+    }
+
+    async function loadCourses() {
+      const res = await apiFetch('/courses');
+      const courses = await res.json();
+      const grid = document.getElementById('courses-grid');
+
+      if (courses.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">📚</div>
+            <h4>No courses yet</h4>
+            <p>${role === 'teacher' ? 'Create your first course using the button above' : 'No courses available to enroll in yet'}</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = courses.map(c => `
+        <div class="card" onclick="openCourse(${c.id}, '${c.title}')">
+          <div class="card-badge badge-blue">📚 Course</div>
+          <h4>${c.title}</h4>
+          <p>${c.description || 'No description provided.'}</p>
+          <div class="card-footer">
+            <span>${timeAgo(c.created_at)}</span>
+            <span style="color:var(--blue);font-weight:600">${role === 'teacher' ? 'Manage →' : 'View →'}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    function openCourse(id, title) {
+      localStorage.setItem('currentCourseId', id);
+      localStorage.setItem('currentCourseTitle', title);
+      window.location.href = 'lessons.html';
+    }
+
+    async function createCourse() {
+      const title = document.getElementById('course-title').value.trim();
+      const description = document.getElementById('course-desc').value.trim();
+
+      if (!title) { showToast('Title is required', 'error'); return; }
+
+      const res = await apiFetch('/courses/create', {
+        method: 'POST',
+        body: JSON.stringify({ title, description })
+      });
+
+      if (res.ok) {
+        showToast('Course created successfully!');
+        closeModal();
+        document.getElementById('course-title').value = '';
+        document.getElementById('course-desc').value = '';
+        loadCourses();
+      } else {
+        showToast('Failed to create course', 'error');
+      }
+    }
+
+    async function enrollCourse(id) {
+      const res = await apiFetch(`/courses/${id}/enroll`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Enrolled successfully! 🎉');
+        loadCourses();
+      } else {
+        showToast('Already enrolled or error occurred', 'error');
+      }
+    }
+
+    function openModal() {
+      document.getElementById('modal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('show');
+    }
+
+    loadPage();
+  </script>
+</body>
+</html>

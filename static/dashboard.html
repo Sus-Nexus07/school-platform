@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">EduFlow</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="dashboard.html" class="nav-item active">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="courses.html" class="nav-item">
+          <span class="nav-icon">📚</span> Courses
+        </a>
+        <a href="assignments.html" class="nav-item">
+          <span class="nav-icon">📝</span> Assignments
+        </a>
+        <div class="nav-label" id="admin-nav-label" style="display:none">Admin</div>
+        <a href="admin.html" class="nav-item" id="admin-nav-link" style="display:none">
+          <span class="nav-icon">👑</span> Admin Panel
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-role" id="user-role">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">⬅️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="welcome-card">
+        <h2 id="welcome-text">Good morning! 👋</h2>
+        <p>Here's what's happening on your platform today.</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon blue">📚</div>
+          <div class="stat-info">
+            <strong id="courses-count">—</strong>
+            <span id="courses-label">Courses</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <strong id="lessons-count">—</strong>
+            <span>Lessons available</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">📝</div>
+          <div class="stat-info">
+            <strong id="assignments-count">—</strong>
+            <span>Assignments</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Recent Courses</h3>
+        <a href="courses.html" class="btn btn-secondary" style="padding:8px 16px;font-size:13px">View all</a>
+      </div>
+      <div class="cards-grid" id="recent-courses">
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <h4>Loading courses...</h4>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+
+    async function loadDashboard() {
+      const res = await apiFetch('/me');
+      const user = await res.json();
+
+      const initial = (user.role === 'teacher' ? 'T' : 'S');
+      document.getElementById('user-avatar').textContent = initial;
+      document.getElementById('user-role').textContent = user.role;
+
+      if (user.role == 'admin') {
+        document.getElementById('admin-nav-label').style.display = 'block';
+        document.getElementById('admin-nav-link').style.display = 'flex';
+      }
+
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+      document.getElementById('welcome-text').textContent = `${greeting}, ${user.name}! 👋`;
+
+      const coursesRes = await apiFetch('/courses');
+      const courses = await coursesRes.json();
+
+      document.getElementById('courses-count').textContent = courses.length;
+      document.getElementById('courses-label').textContent = user.role === 'teacher' ? 'Your courses' : 'Enrolled courses';
+
+      let totalLessons = 0;
+      let totalAssignments = 0;
+
+      for (const course of courses.slice(0, 3)) {
+        try {
+          const lRes = await apiFetch(`/courses/${course.id}/lessons`);
+          const lessons = await lRes.json();
+          totalLessons += lessons.length;
+
+          const aRes = await apiFetch(`/courses/${course.id}/assignments`);
+          const assignments = await aRes.json();
+          totalAssignments += assignments.length;
+        } catch (e) {}
+      }
+
+      document.getElementById('lessons-count').textContent = totalLessons;
+      document.getElementById('assignments-count').textContent = totalAssignments;
+      document.getElementById('user-name').textContent = user.name;
+
+      const grid = document.getElementById('recent-courses');
+      if (courses.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">📚</div>
+            <h4>No courses yet</h4>
+            <p>${user.role === 'teacher' ? 'Create your first course to get started' : 'Enroll in a course to get started'}</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = courses.slice(0, 3).map(c => `
+        <div class="card" onclick="window.location.href='courses.html'">
+          <div class="card-badge badge-blue">📚 Course</div>
+          <h4>${c.title}</h4>
+          <p>${c.description || 'No description provided.'}</p>
+          <div class="card-footer">
+            <span>Created ${timeAgo(c.created_at)}</span>
+            <span style="color:var(--blue);font-weight:600">View →</span>
+          </div>
+        </div>`).join('');
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
