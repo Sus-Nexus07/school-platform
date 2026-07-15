@@ -35,6 +35,13 @@ async function apiFetch(path, options = {}) {
       ...options.headers,
     }
   });
+
+  if (res.status === 401) {
+    localStorage.clear();
+    window.location.href = 'index.html';
+    return;
+  }
+
   return res;
 }
 
