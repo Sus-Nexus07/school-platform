@@ -56,3 +56,13 @@ CREATE TABLE IF NOT EXISTS submissions (
     submitted_at  TIMESTAMP DEFAULT NOW(),
     UNIQUE(assignment_id, user_id)
 );
+
+-- Password reset tokens
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(64) UNIQUE NOT NULL,
+    expires_at  TIMESTAMP NOT NULL,
+    used        BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP DEFAULT NOW()
+);

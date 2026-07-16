@@ -11,6 +11,8 @@ func RegisterRoutes() *http.ServeMux {
 
 	mux.HandleFunc("/api/register", handlers.Register)
 	mux.HandleFunc("/api/login", handlers.Login)
+	mux.HandleFunc("/api/forgot-password", handlers.ForgotPassword)
+	mux.HandleFunc("/api/reset-password", handlers.ResetPassword)
 	mux.HandleFunc("/api/me", middleware.AuthMiddleware(handlers.Me))
 	mux.HandleFunc("/api/courses", middleware.AuthMiddleware(handlers.GetCourses))
 	mux.HandleFunc("/api/courses/create", middleware.AuthMiddleware(handlers.CreateCourse))
