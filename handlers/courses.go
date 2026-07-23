@@ -182,7 +182,52 @@ func CourseRouter(w http.ResponseWriter, r *http.Request) {
 		CreateAssignment(w, r)
 	case strings.HasSuffix(path, "/assignments") && r.Method == http.MethodGet:
 		GetAssignments(w, r)
+	case r.Method == http.MethodDelete:
+		DeleteCourse(w, r)
 	default:
 		http.Error(w, "Route not found", http.StatusNotFound)
 	}
+}
+
+func DeleteCourse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(utils.UserContextKey).(utils.UserClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	courseIDStr := strings.TrimPrefix(r.URL.Path, "/api/courses/")
+	courseID, err := strconv.Atoi(courseIDStr)
+	if err != nil {
+		http.Error(w, "Invalid course ID", http.StatusBadRequest)
+		return
+	}
+
+	var teacherID int
+	err = db.DB.QueryRow(`SELECT teacher_id FROM courses WHERE id = $1`, courseID).Scan(&teacherID)
+	if err != nil {
+		http.Error(w, "Course not found", http.StatusNotFound)
+		return
+	}
+
+	if claims.Role != "admin" && (claims.Role != "teacher" || int(claims.UserID) != teacherID) {
+		http.Error(w, "You don't have permission to delete this course", http.StatusForbidden)
+		return
+	}
+
+	_, err = db.DB.Exec(`DELETE FROM courses WHERE id = $1`, courseID)
+	if err != nil {
+		http.Error(w, "Error deleting course", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Course deleted successfully",
+	})
 }
