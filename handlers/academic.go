@@ -194,3 +194,63 @@ func AssignStudentClass(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
+
+func GetStudentGPA(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(utils.UserContextKey).(utils.UserClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	studentIDStr := strings.TrimPrefix(r.URL.Path, "/api/students/")
+	studentIDStr = strings.TrimSuffix(studentIDStr, "/gpa")
+	studentID, err := strconv.Atoi(studentIDStr)
+	if err != nil {
+		http.Error(w, "Invalid student ID", http.StatusBadRequest)
+		return
+	}
+
+	if claims.Role == "student" && int(claims.UserID) != studentID {
+		http.Error(w, "You can only view your own GPA", http.StatusForbidden)
+		return
+	}
+
+	var avgGrade *float64
+	err = db.DB.QueryRow(
+		`SELECT AVG(grade) FROM submissions WHERE user_id = $1 AND grade IS NOT NULL`,
+		studentID,
+	).Scan(&avgGrade)
+
+	if err != nil {
+		http.Error(w, "Error calculating GPA", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"student_id":    studentID,
+		"average_grade": nil,
+		"gpa":           nil,
+		"graded_count":  0,
+	}
+
+	if avgGrade != nil {
+		gpa := (*avgGrade / 100) * 4.0
+		response["average_grade"] = *avgGrade
+		response["gpa"] = gpa
+	}
+
+	var gradedCount int
+	db.DB.QueryRow(
+		`SELECT COUNT(*) FROM submissions WHERE user_id = $1 AND grade IS NOT NULL`,
+		studentID,
+	).Scan(&gradedCount)
+	response["graded_count"] = gradedCount
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
