@@ -94,6 +94,8 @@ Seven tables, all relationally connected:
 - ✅ Admin panel — view all users, platform stats, change user roles
 - ✅ Password reset flow (forgot password → reset link → new password)
 - ✅ Deployed live on Railway with a managed PostgreSQL database
+- ✅ Departments & classes (admin-managed academic structure)
+- ✅ Live GPA calculation from graded submissions (never stored, always accurate)
 
 ---
 
