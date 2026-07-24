@@ -24,7 +24,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.DB.Query(
-		`SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC`,
+		`SELECT id, name, email, role, class_id, created_at FROM users ORDER BY created_at DESC`,
 	)
 	if err != nil {
 		http.Error(w, "Error fetching users", http.StatusInternalServerError)
@@ -35,7 +35,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.CreatedAt)
+		err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.ClassID, &u.CreatedAt)
 		if err != nil {
 			http.Error(w, "Error reading users", http.StatusInternalServerError)
 			return
@@ -119,9 +119,9 @@ func UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	err = db.DB.QueryRow(
-		`UPDATE users SET role = $1 WHERE id = $2 RETURNING id, name, email, role, created_at`,
+		`UPDATE users SET role = $1 WHERE id = $2 RETURNING id, name, email, role, class_id, created_at`,
 		input.Role, userID,
-	).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.ClassID, &user.CreatedAt)
 
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -137,6 +137,8 @@ func AdminUserRouter(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasSuffix(path, "/role") && r.Method == http.MethodPatch:
 		UpdateUserRole(w, r)
+	case strings.HasSuffix(path, "/class") && r.Method == http.MethodPatch:
+		AssignStudentClass(w, r)
 	default:
 		http.Error(w, "Route not found", http.StatusNotFound)
 	}

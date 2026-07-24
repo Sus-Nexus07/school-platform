@@ -52,13 +52,14 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	query := `
         INSERT INTO users (name, email, password, role)
         VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, role, created_at
+        RETURNING id, name, email, role, class_id, created_at
     `
 	err = db.DB.QueryRow(query, input.Name, input.Email, string(hashedPassword), input.Role).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Email,
 		&user.Role,
+		&user.ClassID,
 		&user.CreatedAt,
 	)
 	if err != nil {
@@ -95,13 +96,14 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	var hashedPassword string
-	query := `SELECT id, name, email, password, role FROM users WHERE email = $1`
+	query := `SELECT id, name, email, password, role, class_id FROM users WHERE email = $1`
 	err = db.DB.QueryRow(query, input.Email).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Email,
 		&hashedPassword,
 		&user.Role,
+		&user.ClassID,
 	)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
@@ -147,9 +149,9 @@ func Me(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	err := db.DB.QueryRow(
-		`SELECT id, name, email, role, created_at FROM users WHERE id = $1`,
+		`SELECT id, name, email, role, class_id, created_at FROM users WHERE id = $1`,
 		int(claims.UserID),
-	).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.CreatedAt)
+	).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.ClassID, &user.CreatedAt)
 
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)

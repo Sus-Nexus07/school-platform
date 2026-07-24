@@ -66,3 +66,21 @@ CREATE TABLE IF NOT EXISTS password_resets (
     used        BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMP DEFAULT NOW()
 );
+
+-- Departments (e.g. Science, Arts, Commercial)
+CREATE TABLE IF NOT EXISTS departments (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(100) UNIQUE NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
+-- Classes (e.g. SS2 Science A), each belongs to a department
+CREATE TABLE IF NOT EXISTS classes (
+    id             SERIAL PRIMARY KEY,
+    name           VARCHAR(100) NOT NULL,
+    department_id  INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+
+-- Add class_id to users (nullable — only students need this)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL;
