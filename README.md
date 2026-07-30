@@ -96,6 +96,7 @@ Seven tables, all relationally connected:
 - ✅ Deployed live on Railway with a managed PostgreSQL database
 - ✅ Departments & classes (admin-managed academic structure)
 - ✅ Live GPA calculation from graded submissions (never stored, always accurate)
+- ✅ Enriched user profile — class & department names resolved via SQL JOIN
 
 ---
 
