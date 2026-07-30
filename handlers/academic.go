@@ -254,3 +254,85 @@ func GetStudentGPA(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+func GetMyProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(utils.UserContextKey).(utils.UserClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var user models.User
+	err := db.DB.QueryRow(
+		`SELECT id, name, email, role, class_id, created_at FROM users WHERE id = $1`,
+		int(claims.UserID),
+	).Scan(&user.ID, &user.Name, &user.Email, &user.Role, &user.ClassID, &user.CreatedAt)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	response := map[string]interface{}{
+		"id":         user.ID,
+		"name":       user.Name,
+		"email":      user.Email,
+		"role":       user.Role,
+		"created_at": user.CreatedAt,
+	}
+
+	if user.ClassID != nil {
+		var className, deptName string
+		var deptID int
+		err = db.DB.QueryRow(
+			`SELECT c.name, d.id, d.name FROM classes c 
+			 JOIN departments d ON c.department_id = d.id 
+			 WHERE c.id = $1`,
+			*user.ClassID,
+		).Scan(&className, &deptID, &deptName)
+
+		if err == nil {
+			response["class_name"] = className
+			response["department_name"] = deptName
+		}
+	}
+
+	if user.Role == "student" {
+		var avgGrade *float64
+		var gradedCount int
+
+		db.DB.QueryRow(
+			`SELECT AVG(grade) FROM submissions WHERE user_id = $1 AND grade IS NOT NULL`,
+			user.ID,
+		).Scan(&avgGrade)
+
+		db.DB.QueryRow(
+			`SELECT COUNT(*) FROM submissions WHERE user_id = $1 AND grade IS NOT NULL`,
+			user.ID,
+		).Scan(&gradedCount)
+
+		response["graded_count"] = gradedCount
+		if avgGrade != nil {
+			response["gpa"] = (*avgGrade / 100) * 4.0
+			response["average_grade"] = *avgGrade
+		} else {
+			response["gpa"] = nil
+			response["average_grade"] = nil
+		}
+	}
+
+	var courseCount int
+	if user.Role == "teacher" {
+		db.DB.QueryRow(`SELECT COUNT(*) FROM courses WHERE teacher_id = $1`, user.ID).Scan(&courseCount)
+	} else {
+		db.DB.QueryRow(`SELECT COUNT(*) FROM enrollments WHERE user_id = $1`, user.ID).Scan(&courseCount)
+	}
+	response["course_count"] = courseCount
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

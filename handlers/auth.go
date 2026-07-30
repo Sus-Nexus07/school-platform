@@ -158,6 +158,33 @@ func Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	response := map[string]interface{}{
+		"id":         user.ID,
+		"name":       user.Name,
+		"email":      user.Email,
+		"role":       user.Role,
+		"class_id":   user.ClassID,
+		"created_at": user.CreatedAt,
+	}
+
+	if user.ClassID != nil {
+		var className, deptName string
+		var deptID int
+		err = db.DB.QueryRow(
+			`SELECT classes.name, departments.id, departments.name
+			 FROM classes
+			 JOIN departments ON classes.department_id = departments.id
+			 WHERE classes.id = $1`,
+			*user.ClassID,
+		).Scan(&className, &deptID, &deptName)
+
+		if err == nil {
+			response["class_name"] = className
+			response["department_id"] = deptID
+			response["department_name"] = deptName
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(response)
 }
