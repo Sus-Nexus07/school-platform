@@ -20,17 +20,6 @@ func main() {
 
 	db.Connect()
 
-	schemaSQL, err := os.ReadFile("schema.sql")
-	if err != nil {
-    	log.Println("Could not read schema.sql:", err)
-	} else {
-    	_, err = db.DB.Exec(string(schemaSQL))
-    	if err != nil {
-        	log.Println("Schema execution error:", err)
-    	} else {
-        	log.Println("Schema applied successfully")
-    	}
-	}
 
 	mux := routes.RegisterRoutes()
 

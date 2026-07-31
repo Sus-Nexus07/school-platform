@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow — Assignments</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">EduFlow</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="courses.html" class="nav-item">
+          <span class="nav-icon">📚</span> Courses
+        </a>
+        <a href="assignments.html" class="nav-item active">
+          <span class="nav-icon">📝</span> Assignments
+        </a>
+        <a href="profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+        <div class="nav-label" id="admin-nav-label" style="display:none">Admin</div>
+        <a href="admin.html" class="nav-item" id="admin-nav-link" style="display:none">
+          <span class="nav-icon">👑</span> Admin Panel
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-role" id="user-role">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">⬅️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <h1>Assignments</h1>
+        <p id="page-subtitle">All assignments across your courses</p>
+      </div>
+
+      <div id="assignments-list">
+        <div class="empty-state">
+          <div class="empty-icon">⏳</div>
+          <h4>Loading...</h4>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+    let currentRole = null;
+
+    async function loadPage() {
+      const meRes = await apiFetch('/me');
+      const user = await meRes.json();
+      currentRole = user.role;
+
+      document.getElementById('user-avatar').textContent = user.role === 'teacher' ? 'T' : (user.role === 'admin' ? 'A' : 'S');
+      document.getElementById('user-name').textContent = user.name;
+      document.getElementById('user-role').textContent = user.role;
+
+      if (user.role === 'admin') {
+        document.getElementById('admin-nav-label').style.display = 'block';
+        document.getElementById('admin-nav-link').style.display = 'flex';
+      }
+
+      document.getElementById('page-subtitle').textContent =
+        user.role === 'teacher' ? 'All assignments across your courses' : 'Your assignments and grades';
+
+      loadAssignments();
+    }
+
+    async function loadAssignments() {
+      const res = await apiFetch('/assignments');
+      const assignments = await res.json();
+      const list = document.getElementById('assignments-list');
+
+      if (assignments.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h4>No assignments yet</h4>
+            <p>${currentRole === 'teacher' ? 'Post assignments from inside a course' : 'Enroll in a course to see assignments'}</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = assignments.map(a => {
+        const dueDate = new Date(a.due_date).toLocaleDateString();
+        let statusBadge = '';
+
+        if (currentRole === 'student') {
+          if (a.grade !== null && a.grade !== undefined) {
+            statusBadge = `<span class="grade-badge ${getGradeClass(a.grade)}">Graded: ${a.grade}</span>`;
+          } else {
+            statusBadge = `<span class="grade-badge grade-pending">Pending</span>`;
+          }
+        }
+
+        return `
+          <div class="list-item" onclick="goToCourse(${a.course_id}, '${a.course_title.replace(/'/g, "\\'")}')">
+            <div class="list-number">📝</div>
+            <div class="list-info">
+              <h4>${a.title}</h4>
+              <p>${a.course_title} · Due ${dueDate}</p>
+            </div>
+            ${statusBadge}
+          </div>`;
+      }).join('');
+    }
+
+    function goToCourse(id, title) {
+      localStorage.setItem('currentCourseId', id);
+      localStorage.setItem('currentCourseTitle', title);
+      window.location.href = 'lessons.html';
+    }
+
+    loadPage();
+  </script>
+</body>
+</html>

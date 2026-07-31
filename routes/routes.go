@@ -28,6 +28,7 @@ func RegisterRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/classes/create", middleware.AuthMiddleware(handlers.CreateClass))
 	mux.HandleFunc("/api/students/", middleware.AuthMiddleware(handlers.GetStudentGPA))
 	mux.HandleFunc("/api/profile", middleware.AuthMiddleware(handlers.GetMyProfile))
+	mux.HandleFunc("/api/assignments", middleware.AuthMiddleware(handlers.GetAllAssignments))
 
 	return mux
 }

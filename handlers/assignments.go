@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -322,4 +323,82 @@ func SubmissionRouter(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Route not found", http.StatusNotFound)
 	}
+}
+
+func GetAllAssignments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(utils.UserContextKey).(utils.UserClaims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if claims.Role == "teacher" {
+		rows, err = db.DB.Query(`
+			SELECT assignments.id, assignments.course_id, assignments.title, 
+			       assignments.description, assignments.due_date, assignments.created_at,
+			       courses.title
+			FROM assignments
+			JOIN courses ON assignments.course_id = courses.id
+			WHERE courses.teacher_id = $1
+			ORDER BY assignments.due_date ASC
+		`, int(claims.UserID))
+	} else {
+		rows, err = db.DB.Query(`
+			SELECT assignments.id, assignments.course_id, assignments.title, 
+			       assignments.description, assignments.due_date, assignments.created_at,
+			       courses.title
+			FROM assignments
+			JOIN enrollments ON assignments.course_id = enrollments.course_id
+			JOIN courses ON assignments.course_id = courses.id
+			WHERE enrollments.user_id = $1
+			ORDER BY assignments.due_date ASC
+		`, int(claims.UserID))
+	}
+
+	if err != nil {
+		http.Error(w, "Error fetching assignments", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type AssignmentWithCourse struct {
+		models.Assignment
+		CourseTitle string  `json:"course_title"`
+		SubmittedAt *string `json:"submitted_at"`
+		Grade       *int    `json:"grade"`
+	}
+
+	var assignments []AssignmentWithCourse
+	for rows.Next() {
+		var a AssignmentWithCourse
+		err := rows.Scan(&a.ID, &a.CourseID, &a.Title, &a.Description, &a.DueDate, &a.CreatedAt, &a.CourseTitle)
+		if err != nil {
+			http.Error(w, "Error reading assignments", http.StatusInternalServerError)
+			return
+		}
+
+		if claims.Role == "student" {
+			db.DB.QueryRow(
+				`SELECT grade FROM submissions WHERE assignment_id = $1 AND user_id = $2`,
+				a.ID, int(claims.UserID),
+			).Scan(&a.Grade)
+		}
+
+		assignments = append(assignments, a)
+	}
+
+	if assignments == nil {
+		assignments = []AssignmentWithCourse{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(assignments)
 }
