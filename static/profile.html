@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow — Profile</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .profile-header {
+      background: linear-gradient(135deg, var(--navy) 0%, #1E3A5F 50%, #1A2D4A 100%);
+      border-radius: var(--radius);
+      padding: 40px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-header::before {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(79,142,247,0.2) 0%, transparent 70%);
+      top: -80px;
+      right: -80px;
+    }
+    .profile-avatar-big {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--white);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .profile-header-info { position: relative; z-index: 1; }
+    .profile-header-info h2 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+    .profile-header-info p {
+      color: var(--gray-400);
+      font-size: 14px;
+    }
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .profile-stat {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .profile-stat label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .profile-stat .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .gpa-value { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">EduFlow</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="courses.html" class="nav-item">
+          <span class="nav-icon">📚</span> Courses
+        </a>
+        <a href="assignments.html" class="nav-item">
+          <span class="nav-icon">📝</span> Assignments
+        </a>
+        <a href="profile.html" class="nav-item active">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+        <div class="nav-label" id="admin-nav-label" style="display:none">Admin</div>
+        <a href="admin.html" class="nav-item" id="admin-nav-link" style="display:none">
+          <span class="nav-icon">👑</span> Admin Panel
+        </a>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-role" id="user-role">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">⬅️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <h1>My Profile</h1>
+        <p>Your account details and academic info</p>
+      </div>
+
+      <div class="profile-header">
+        <div class="profile-avatar-big" id="big-avatar">?</div>
+        <div class="profile-header-info">
+          <h2 id="profile-name">Loading...</h2>
+          <p id="profile-email">—</p>
+        </div>
+      </div>
+
+      <div class="profile-grid" id="profile-grid">
+        <div class="profile-stat">
+          <label>Role</label>
+          <div class="value" id="profile-role">—</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth();
+
+    async function loadProfile() {
+      const res = await apiFetch('/me');
+      const user = await res.json();
+
+      document.getElementById('user-avatar').textContent = user.role === 'teacher' ? 'T' : (user.role === 'admin' ? 'A' : 'S');
+      document.getElementById('user-name').textContent = user.name;
+      document.getElementById('user-role').textContent = user.role;
+
+      if (user.role === 'admin') {
+        document.getElementById('admin-nav-label').style.display = 'block';
+        document.getElementById('admin-nav-link').style.display = 'flex';
+      }
+
+      document.getElementById('big-avatar').textContent = user.name.charAt(0).toUpperCase();
+      document.getElementById('profile-name').textContent = user.name;
+      document.getElementById('profile-email').textContent = user.email;
+      document.getElementById('profile-role').textContent = user.role;
+
+      const grid = document.getElementById('profile-grid');
+
+      if (user.role === 'student') {
+        let html = `
+          <div class="profile-stat">
+            <label>Role</label>
+            <div class="value">${user.role}</div>
+          </div>
+          <div class="profile-stat">
+            <label>Department</label>
+            <div class="value">${user.department_name || 'Not assigned'}</div>
+          </div>
+          <div class="profile-stat">
+            <label>Class</label>
+            <div class="value">${user.class_name || 'Not assigned'}</div>
+          </div>
+        `;
+        grid.innerHTML = html;
+
+        const gpaRes = await apiFetch(`/students/${user.id}/gpa`);
+        const gpaData = await gpaRes.json();
+
+        const gpaCard = document.createElement('div');
+        gpaCard.className = 'profile-stat';
+        gpaCard.innerHTML = `
+          <label>GPA</label>
+          <div class="value gpa-value">${gpaData.gpa !== null ? gpaData.gpa.toFixed(2) : 'N/A'}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">
+            Based on ${gpaData.graded_count} graded assignment${gpaData.graded_count === 1 ? '' : 's'}
+          </div>
+        `;
+        grid.appendChild(gpaCard);
+      }
+
+      if (user.role === 'teacher') {
+        const coursesRes = await apiFetch('/courses');
+        const courses = await coursesRes.json();
+
+        grid.innerHTML = `
+          <div class="profile-stat">
+            <label>Role</label>
+            <div class="value">${user.role}</div>
+          </div>
+          <div class="profile-stat">
+            <label>Courses Teaching</label>
+            <div class="value">${courses.length}</div>
+          </div>
+        `;
+      }
+
+      if (user.role === 'admin') {
+        grid.innerHTML = `
+          <div class="profile-stat">
+            <label>Role</label>
+            <div class="value">${user.role}</div>
+          </div>
+          <div class="profile-stat">
+            <label>Access Level</label>
+            <div class="value">Full platform access</div>
+          </div>
+        `;
+      }
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>
