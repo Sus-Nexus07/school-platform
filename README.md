@@ -109,6 +109,7 @@ Seven tables, all relationally connected:
 - 🔜 In-app notifications
 - 🔜 Search & filter for courses
 - 🔜 Full security hardening pass (rate limiting, CORS policy, brute-force lockout)
+- 🔄 Email verification — fully built (registration, token generation, middleware enforcement), pending domain purchase to unlock real email delivery beyond testing restrictions
 
 ---
 
