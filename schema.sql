@@ -84,3 +84,15 @@ CREATE TABLE IF NOT EXISTS classes (
 
 -- Add class_id to users (nullable — only students need this)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL;
+
+-- Add verified status to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Email verification tokens
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(64) UNIQUE NOT NULL,
+    expires_at  TIMESTAMP NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+);

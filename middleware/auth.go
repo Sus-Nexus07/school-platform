@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"school_platform/utils"
+	"school_platform/db"
 )
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -47,7 +48,20 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			Role:   claims["role"].(string),
 		}
 
+		var verified bool
+		err = db.DB.QueryRow(`SELECT verified FROM users WHERE id = $1`, int(userClaims.UserID)).Scan(&verified)
+		if err != nil {
+    		http.Error(w, "User not found", http.StatusUnauthorized)
+    		return
+		}
+
+		if !verified {
+    		http.Error(w, "Please verify your email before accessing this", http.StatusForbidden)
+    		return
+		}
+
 		ctx := context.WithValue(r.Context(), utils.UserContextKey, userClaims)
 		next.ServeHTTP(w, r.WithContext(ctx))
+
 	}
 }
